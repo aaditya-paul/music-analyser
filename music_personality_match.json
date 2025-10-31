@@ -1,0 +1,27 @@
+{
+  "music_personality_score": 57,
+  "personality_type": "THE ECLECTIC COLLECTOR",
+  "compatibility_tier": "HIGH COMPATIBILITY",
+  "vector": [
+    50,
+    91,
+    61,
+    81,
+    35,
+    27,
+    46
+  ],
+  "dimensions": {
+    "mainstream_vs_indie": 50,
+    "diversity": 91,
+    "nostalgia": 61,
+    "energy": 81,
+    "emotional_depth": 35,
+    "cultural_rootedness": 27,
+    "explorer": 46
+  },
+  "top_genre": "hindi pop",
+  "top_artist": "Arijit Singh",
+  "avg_popularity": 52.72,
+  "total_artists": 1273
+}

@@ -1,0 +1,82 @@
+# Operating System
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnp.cjs
+.pnp.js
+.pnpm-store/
+
+# Builds / output
+dist/
+build/
+out/
+public/build/
+.cache/
+.next/
+.nuxt/
+.vite/
+.esbuild/
+
+# Environment / secrets
+.env
+.env.*.local
+.env.local
+.env.test
+.env.production
+.env.*.secret
+secrets.*
+*.key
+*.pem
+
+# Logs
+logs/
+*.log
+debug.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Python (in case backend uses Python)
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
+ENV/
+pip-wheel-metadata/
+*.egg-info/
+.eggs/
+
+# Databases
+*.sqlite3
+*.db
+*.sql
+*.bak
+
+# IDEs / Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.vcxproj
+*.swp
+*~
+
+# Docker / Terraform / Misc
+docker-compose.override.yml
+docker-compose.*.yml
+.terraform/
+*.lock
