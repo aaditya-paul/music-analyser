@@ -1,3 +1,11 @@
+
+![WhatsApp Image 2025-10-31 at 22 43 03_391f985e](https://github.com/user-attachments/assets/70c0789c-5bc3-42d9-aea9-38bf48079e8d)
+![WhatsApp Image 2025-10-31 at 22 43 02_3f4b666b](https://github.com/user-attachments/assets/d86914e1-9f33-4489-a3d9-632d8decd139)
+![WhatsApp Image 2025-10-31 at 22 43 50_563020a4](https://github.com/user-attachments/assets/d9fdeb38-8594-4f6b-b510-dcfea91ab230)
+
+# Video Output
+https://github.com/user-attachments/assets/a1709ea3-cdc4-4c5f-9457-d5e7fd5d16ac
+
 # 🎵 Spotify Music Personality Analyzer
 
 A comprehensive Python application that analyzes your Spotify listening habits and generates a detailed music personality profile. The tool fetches your listening data, performs statistical analysis, and creates beautiful visualizations to reveal insights about your musical taste.
