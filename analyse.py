@@ -90,14 +90,23 @@ def analyze_statistics(med_tracks, med_artists):
     print("Analysis")
     print("=" * 80)
     
+    # Check if we have data
+    if len(med_tracks) == 0:
+        print("\n⚠️  No medium-term track data available!")
+        print("    Using long-term data as fallback if available.")
+        return med_tracks
+    
     print("\n📈 TRACK POPULARITY STATISTICS:")
     print(f"Average popularity (medium-term): {med_tracks['popularity'].mean():.2f}/100")
     print(f"Most popular track score: {med_tracks['popularity'].max()}/100")
     print(f"Least popular track score: {med_tracks['popularity'].min()}/100")
     
-    print("\n📈 ARTIST POPULARITY STATISTICS:")
-    print(f"Average artist popularity (medium-term): {med_artists['popularity'].mean():.2f}/100")
-    print(f"Most popular artist score: {med_artists['popularity'].max()}/100")
+    if len(med_artists) > 0:
+        print("\n📈 ARTIST POPULARITY STATISTICS:")
+        print(f"Average artist popularity (medium-term): {med_artists['popularity'].mean():.2f}/100")
+        print(f"Most popular artist score: {med_artists['popularity'].max()}/100")
+    else:
+        print("\n⚠️  No medium-term artist data available!")
     
     print("\n⏱️ TRACK DURATION STATISTICS:")
     med_tracks['duration_minutes'] = med_tracks['duration_ms'] / 60000
@@ -228,9 +237,9 @@ def show_music_graphs(show, personality_scores, personality_vector, artist_count
     periods = ['Short\n(4 weeks)', 'Medium\n(6 months)', 'Long\n(Years)']
     track_counts = [len(short_tracks), len(med_tracks), len(long_tracks)]
     avg_popularities = [
-        short_tracks['popularity'].mean(),
-        med_tracks['popularity'].mean(),
-        long_tracks['popularity'].mean()
+        short_tracks['popularity'].mean() if len(short_tracks) > 0 and 'popularity' in short_tracks.columns else 0,
+        med_tracks['popularity'].mean() if len(med_tracks) > 0 and 'popularity' in med_tracks.columns else 0,
+        long_tracks['popularity'].mean() if len(long_tracks) > 0 and 'popularity' in long_tracks.columns else 0
     ]
     
     x = np.arange(len(periods))
@@ -533,6 +542,19 @@ def run_music_analysis(show_graphs=True):
         top_tracks, top_artists, saved_tracks, recently_played
     )
     
+    # Use fallback data if medium-term is empty
+    if len(med_tracks) == 0 and len(long_tracks) > 0:
+        print("\n⚠️  Medium-term data not available. Using long-term data as primary source.")
+        med_tracks = long_tracks.copy()
+        med_artists = long_artists.copy()
+    elif len(med_tracks) == 0 and len(short_tracks) > 0:
+        print("\n⚠️  Medium and long-term data not available. Using short-term data as primary source.")
+        med_tracks = short_tracks.copy()
+        med_artists = short_artists.copy()
+    elif len(med_tracks) == 0:
+        print("\n❌ ERROR: No track data available in any time period!")
+        return None
+    
     # Inspect data
     # inspect_data(med_tracks, med_artists)
     
@@ -593,9 +615,20 @@ def run_music_analysis(show_graphs=True):
     print(f"  Long-term (several years): {len(long_tracks)} tracks")
 
     print("\n📊 AVERAGE POPULARITY BY TIME PERIOD:")
-    print(f"  Short-term: {short_tracks['popularity'].mean():.2f}/100")
-    print(f"  Medium-term: {med_tracks['popularity'].mean():.2f}/100")
-    print(f"  Long-term: {long_tracks['popularity'].mean():.2f}/100")
+    if len(short_tracks) > 0 and 'popularity' in short_tracks.columns:
+        print(f"  Short-term: {short_tracks['popularity'].mean():.2f}/100")
+    else:
+        print(f"  Short-term: N/A (no data)")
+    
+    if len(med_tracks) > 0 and 'popularity' in med_tracks.columns:
+        print(f"  Medium-term: {med_tracks['popularity'].mean():.2f}/100")
+    else:
+        print(f"  Medium-term: N/A (no data)")
+    
+    if len(long_tracks) > 0 and 'popularity' in long_tracks.columns:
+        print(f"  Long-term: {long_tracks['popularity'].mean():.2f}/100")
+    else:
+        print(f"  Long-term: N/A (no data)")
 
     print()
 
@@ -604,9 +637,12 @@ def run_music_analysis(show_graphs=True):
     print(" YOUR RECENT LISTENING HABITS")
     print("=" * 80)
 
-    print(f"\n🎧 Last {len(recent)} tracks you played:")
-    for idx, row in recent.head(10).iterrows():
-        print(f"  {row['track_name']} by {', '.join(row['artists'])}")
+    if len(recent) > 0:
+        print(f"\n🎧 Last {len(recent)} tracks you played:")
+        for idx, row in recent.head(10).iterrows():
+            print(f"  {row['track_name']} by {', '.join(row['artists'])}")
+    else:
+        print("\n⚠️  No recent listening history available.")
 
     print()
 

@@ -147,4 +147,4 @@ Feel free to use colorful metaphors (e.g. “your playlists scream emotional mai
         print("Make sure you have set GEMINI_API_KEY in your .env file")
 
 if __name__ == "__main__":
-    main()
+    main()  
