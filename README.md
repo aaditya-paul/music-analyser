@@ -45,6 +45,17 @@ Calculates a weighted **Music Personality Match Score** (0-100) designed for mat
 - 7-dimensional vector for distance-based matching algorithms
 - Exportable JSON data for integration
 
+### 🤖 AI-Powered Insights (NEW!)
+
+Uses **Google Gemini 2.5 Flash** to generate personalized, human-like insights about your music personality:
+
+- 📝 Personalized 2-3 paragraph summary of your music taste
+- 🔍 Key insights about what makes your taste unique
+- 🧠 Personality interpretation based on listening habits
+- 💡 Recommendations for social connections and music discovery
+- 🎯 Fun observations and interesting patterns
+- 💾 Automatically saved to `ai_music_insights.txt`
+
 ## 🚀 Setup
 
 ### Prerequisites
@@ -104,6 +115,20 @@ Calculates a weighted **Music Personality Match Score** (0-100) designed for mat
    SPOTIPY_REDIRECT_URI=http://127.0.0.1:8888/callback
    ```
 
+5. **Set up Gemini API key (Optional - for AI insights)**
+
+   a. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
+
+   b. Create an API key
+
+   c. Add it to your `.env` file:
+
+   ```properties
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+
+   **Note**: The AI summary feature is optional. The analysis will still work without it.
+
 ## 📖 Usage
 
 ### Basic Usage
@@ -162,13 +187,15 @@ backend/
 ├── .env                             # Environment variables (create this)
 ├── .example.env                     # Environment template
 ├── .spotify_cache                   # OAuth token cache (auto-generated)
+├── ai_summary.py                    # Gemini AI integration
 ├── data/                            # Raw Spotify data (auto-generated)
 │   ├── top_tracks.json
 │   ├── top_artists.json
 │   ├── saved_tracks.json
 │   └── recently_played.json
 ├── music_personality_graphs.png     # Generated visualization (output)
-└── music_personality_match.json     # Match data export (output)
+├── music_personality_match.json     # Match data export (output)
+└── ai_music_insights.txt            # AI-generated summary (output)
 ```
 
 ## 📊 Output Files
@@ -201,6 +228,23 @@ Contains your music personality data in JSON format:
   "avg_popularity": 62.5,
   "total_artists": 247
 }
+```
+
+### `ai_music_insights.txt` (NEW!)
+
+AI-generated personalized insights in plain text format. Contains:
+
+- Personalized summary (2-3 paragraphs)
+- Key insights about your unique music taste
+- Personality interpretation
+- Recommendations for music discovery and social connections
+- Fun observations and patterns
+
+**Example excerpt:**
+
+```
+You're a true Musical Nomad with an impressive diversity score of 82/100. Your eclectic taste
+spans across 40+ genres, showing a genuine curiosity and openness to new sounds...
 ```
 
 ## 🔧 Configuration
@@ -279,6 +323,14 @@ python fetchSpotifyData.py
 3. Check redirect URI matches exactly: `http://127.0.0.1:8888/callback`
 4. Ensure your Spotify app is not in Development Mode restrictions
 
+### `Error generating AI summary` or Missing Gemini API Key
+
+The AI summary feature requires a Gemini API key:
+
+1. Get a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Add it to your `.env` file: `GEMINI_API_KEY=your_key_here`
+3. The analysis will work fine without it - AI insights are optional
+
 ## 📦 Dependencies
 
 Main libraries:
@@ -288,6 +340,7 @@ Main libraries:
 - **matplotlib** (3.10.7): Visualization and plotting
 - **numpy** (2.3.4): Numerical computing
 - **python-dotenv** (1.2.1): Environment variable management
+- **google-genai** (latest): Google Gemini AI SDK (optional, for AI insights)
 
 See `requirements.txt` for complete list.
 

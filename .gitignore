@@ -24,6 +24,10 @@ public/build/
 .vite/
 .esbuild/
 
+data/
+music_personality_graphs.png
+music_personality_match.json
+ai_music_insights.txt
 # Environment / secrets
 .env
 .env.*.local

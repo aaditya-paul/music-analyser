@@ -277,7 +277,238 @@ def show_music_graphs(show, personality_scores, personality_vector, artist_count
     print("✅ Graphs displayed!")
 
 
-# Call the visualization function
+# ============================================================================
+#  PERSONALITY CALCULATION FUNCTIONS
+# ============================================================================
+
+def calculate_personality_scores(med_tracks, artist_counts, genre_counts):
+    """
+    Calculate 7-dimensional personality scores based on listening habits.
+    
+    Args:
+        med_tracks (pd.DataFrame): Medium-term tracks data
+        artist_counts (pd.Series): Count of tracks per artist
+        genre_counts (pd.Series): Count of artists per genre
+    
+    Returns:
+        tuple: (personality_scores dict, avg_popularity float)
+    """
+    print("=" * 80)
+    print("🎭 YOUR MUSIC PERSONALITY PROFILE")
+    print("=" * 80)
+    
+    # Initialize personality scores (0-100)
+    personality_scores = {
+        'mainstream_factor': 0,      # How mainstream vs indie your taste is
+        'diversity_factor': 0,        # How diverse your music taste is
+        'nostalgia_factor': 0,        # How much you listen to older/classic music
+        'energy_factor': 0,           # Inferred energy level
+        'emotional_depth': 0,         # How emotional/melancholic your music is
+        'cultural_rootedness': 0,     # Connection to cultural music (Bollywood, regional)
+        'explorer_factor': 0          # How much you explore new/obscure music
+    }
+
+    # ===== FACTOR 1: MAINSTREAM vs INDIE =====
+    avg_popularity = med_tracks['popularity'].mean()
+    if avg_popularity >= 70:
+        personality_scores['mainstream_factor'] = 85
+    elif avg_popularity >= 60:
+        personality_scores['mainstream_factor'] = 65
+    elif avg_popularity >= 50:
+        personality_scores['mainstream_factor'] = 50
+    elif avg_popularity >= 40:
+        personality_scores['mainstream_factor'] = 35
+    else:
+        personality_scores['mainstream_factor'] = 20
+
+    # ===== FACTOR 2: DIVERSITY =====
+    unique_genres = len(genre_counts) if len(genre_counts) > 0 else 0
+    unique_artists_count = len(artist_counts)
+    artist_concentration = artist_counts.head(10).sum() / len(med_tracks) if len(med_tracks) > 0 else 0
+
+    diversity_score = (
+        (min(unique_genres / 30, 1.0) * 40) +
+        (min(unique_artists_count / 500, 1.0) * 30) +
+        ((1 - artist_concentration) * 30)
+    )
+    personality_scores['diversity_factor'] = int(diversity_score)
+
+    # ===== FACTOR 3: NOSTALGIA =====
+    nostalgia_genres = ['classic bollywood', 'ghazal', 'qawwali', 'classic hindi pop', 
+                        'hindi retro', 'old bollywood', 'golden age']
+    nostalgia_artists = ['Kishore Kumar', 'Lata Mangeshkar', 'Mohammed Rafi', 
+                         'R. D. Burman', 'Asha Bhosle', 'Mukesh']
+
+    nostalgia_genre_count = sum(1 for g in genre_counts.index[:20] 
+                                if any(ng in g.lower() for ng in nostalgia_genres))
+    nostalgia_artist_count = sum(1 for a in artist_counts.index[:20] 
+                                 if a in nostalgia_artists)
+
+    nostalgia_score = (
+        (nostalgia_genre_count / 5 * 50) +
+        (nostalgia_artist_count / 6 * 50)
+    )
+    personality_scores['nostalgia_factor'] = int(min(nostalgia_score, 100))
+
+    # ===== FACTOR 4: ENERGY =====
+    upbeat_genres = ['pop', 'dance', 'edm', 'hip hop', 'party', 'punjabi']
+    mellow_genres = ['indie', 'sad', 'slow', 'acoustic', 'chill', 'lo-fi', 'ambient']
+
+    upbeat_count = sum(1 for g in genre_counts.index[:30] 
+                       if any(ug in g.lower() for ug in upbeat_genres))
+    mellow_count = sum(1 for g in genre_counts.index[:30] 
+                       if any(mg in g.lower() for mg in mellow_genres))
+
+    if upbeat_count + mellow_count > 0:
+        energy_ratio = upbeat_count / (upbeat_count + mellow_count)
+        personality_scores['energy_factor'] = int(energy_ratio * 100)
+    else:
+        personality_scores['energy_factor'] = 50
+
+    # ===== FACTOR 5: EMOTIONAL DEPTH =====
+    emotional_artists = ['Cigarettes After Sex', 'Arijit Singh', 'Atif Aslam']
+    emotional_genres = ['sad', 'romantic', 'melancholic', 'sufi', 'ghazal', 'indie']
+
+    emotional_artist_count = sum(1 for a in artist_counts.index[:30] 
+                                 if any(ea in a for ea in emotional_artists))
+    emotional_genre_count = sum(1 for g in genre_counts.index[:30] 
+                                if any(eg in g.lower() for eg in emotional_genres))
+
+    emotional_score = (
+        (emotional_artist_count / 10 * 50) +
+        (emotional_genre_count / 10 * 50)
+    )
+    personality_scores['emotional_depth'] = int(min(emotional_score, 100))
+
+    # ===== FACTOR 6: CULTURAL ROOTEDNESS =====
+    cultural_genres = ['bollywood', 'hindi', 'bangla', 'desi', 'indian', 'punjabi', 
+                       'tamil', 'marathi', 'telugu']
+    cultural_count = sum(1 for g in genre_counts.index if any(cg in g.lower() for cg in cultural_genres))
+    total_genres = len(genre_counts) if len(genre_counts) > 0 else 1
+
+    cultural_ratio = cultural_count / total_genres
+    personality_scores['cultural_rootedness'] = int(cultural_ratio * 100)
+
+    # ===== FACTOR 7: EXPLORER =====
+    low_popularity_tracks = len(med_tracks[med_tracks['popularity'] < 30])
+    obscure_ratio = low_popularity_tracks / len(med_tracks) if len(med_tracks) > 0 else 0
+    artist_variety = min(unique_artists_count / 1000, 1.0)
+
+    explorer_score = (
+        (obscure_ratio * 60) +
+        (artist_variety * 40)
+    )
+    personality_scores['explorer_factor'] = int(explorer_score)
+    
+    return personality_scores, avg_popularity
+
+
+def display_personality_profile(personality_scores):
+    """
+    Display personality scores with visual bars and labels.
+    
+    Args:
+        personality_scores (dict): Dictionary of personality dimension scores
+    
+    Returns:
+        tuple: (personality_type, description, avg_score)
+    """
+    def get_bar(score, width=30):
+        filled = int((score / 100) * width)
+        return '█' * filled + '░' * (width - filled)
+
+    def get_label(score, labels):
+        if score >= 80:
+            return labels[4]
+        elif score >= 60:
+            return labels[3]
+        elif score >= 40:
+            return labels[2]
+        elif score >= 20:
+            return labels[1]
+        else:
+            return labels[0]
+    
+    print("\n🎯 YOUR PERSONALITY SCORES (0-100 scale):\n")
+
+    print(f"1️⃣  MAINSTREAM vs INDIE: {personality_scores['mainstream_factor']}/100")
+    print(f"   {get_bar(personality_scores['mainstream_factor'])}")
+    print(f"   → {get_label(personality_scores['mainstream_factor'], ['Underground Explorer', 'Indie Lover', 'Balanced', 'Chart Follower', 'Mainstream Enthusiast'])}\n")
+
+    print(f"2️⃣  MUSIC DIVERSITY: {personality_scores['diversity_factor']}/100")
+    print(f"   {get_bar(personality_scores['diversity_factor'])}")
+    print(f"   → {get_label(personality_scores['diversity_factor'], ['Very Focused', 'Somewhat Focused', 'Balanced', 'Diverse Listener', 'Musical Omnivore'])}\n")
+
+    print(f"3️⃣  NOSTALGIA LEVEL: {personality_scores['nostalgia_factor']}/100")
+    print(f"   {get_bar(personality_scores['nostalgia_factor'])}")
+    print(f"   → {get_label(personality_scores['nostalgia_factor'], ['Modern Only', 'Mostly Modern', 'Balanced', 'Classic Lover', 'Vintage Soul'])}\n")
+
+    print(f"4️⃣  ENERGY LEVEL: {personality_scores['energy_factor']}/100")
+    print(f"   {get_bar(personality_scores['energy_factor'])}")
+    print(f"   → {get_label(personality_scores['energy_factor'], ['Very Mellow', 'Chill Vibes', 'Balanced', 'Upbeat', 'High Energy'])}\n")
+
+    print(f"5️⃣  EMOTIONAL DEPTH: {personality_scores['emotional_depth']}/100")
+    print(f"   {get_bar(personality_scores['emotional_depth'])}")
+    print(f"   → {get_label(personality_scores['emotional_depth'], ['Light & Fun', 'Mostly Upbeat', 'Balanced', 'Emotionally Rich', 'Deep Feels'])}\n")
+
+    print(f"6️⃣  CULTURAL ROOTEDNESS: {personality_scores['cultural_rootedness']}/100")
+    print(f"   {get_bar(personality_scores['cultural_rootedness'])}")
+    print(f"   → {get_label(personality_scores['cultural_rootedness'], ['Global Listener', 'Mixed Tastes', 'Balanced', 'Culture-Connected', 'Deeply Rooted'])}\n")
+
+    print(f"7️⃣  EXPLORER MINDSET: {personality_scores['explorer_factor']}/100")
+    print(f"   {get_bar(personality_scores['explorer_factor'])}")
+    print(f"   → {get_label(personality_scores['explorer_factor'], ['Comfort Zone', 'Mostly Familiar', 'Balanced', 'Adventurous', 'Music Archaeologist'])}\n")
+
+    # ===== DETERMINE PERSONALITY TYPE =====
+    print("=" * 80)
+    print("🎭 YOUR MUSIC PERSONALITY TYPE")
+    print("=" * 80)
+
+    avg_score = sum(personality_scores.values()) / len(personality_scores)
+
+    if personality_scores['cultural_rootedness'] > 70 and personality_scores['nostalgia_factor'] > 60:
+        personality_type = "🏛️ THE CULTURAL GUARDIAN"
+        description = "You have deep roots in your cultural music heritage and appreciate the classics. You're keeping traditions alive while enjoying contemporary sounds."
+    
+    elif personality_scores['diversity_factor'] > 70 and personality_scores['explorer_factor'] > 60:
+        personality_type = "🌍 THE MUSICAL NOMAD"
+        description = "You're constantly exploring new sounds and artists across genres. Your curiosity drives your music taste, and you're not afraid to venture into the unknown."
+    
+    elif personality_scores['emotional_depth'] > 70:
+        personality_type = "💔 THE EMOTIONAL WANDERER"
+        description = "Music is your emotional outlet. You connect deeply with lyrics and melodies that reflect complex feelings. You're introspective and sentimental."
+    
+    elif personality_scores['mainstream_factor'] > 70 and personality_scores['energy_factor'] > 60:
+        personality_type = "🎉 THE VIBE CURATOR"
+        description = "You love what's trending and know how to set the mood. Your playlist is perfect for parties, and you're always up-to-date with the latest hits."
+    
+    elif personality_scores['nostalgia_factor'] > 70:
+        personality_type = "⏰ THE TIME TRAVELER"
+        description = "You find comfort in the golden oldies and timeless classics. Modern music is fine, but nothing beats the magic of the past for you."
+    
+    elif personality_scores['mainstream_factor'] < 40 and personality_scores['explorer_factor'] > 60:
+        personality_type = "🔍 THE INDIE ARCHAEOLOGIST"
+        description = "Mainstream is not your thing. You dig deep to find hidden gems and obscure artists that others haven't discovered yet. You're a true music connoisseur."
+    
+    elif personality_scores['diversity_factor'] > 70:
+        personality_type = "🎨 THE ECLECTIC COLLECTOR"
+        description = "Your music taste is wonderfully unpredictable. From Bollywood to indie rock, ghazals to pop - you appreciate good music regardless of genre boundaries."
+    
+    else:
+        personality_type = "🎵 THE BALANCED LISTENER"
+        description = "You have a well-rounded music taste that doesn't lean too heavily in any direction. You appreciate variety while maintaining your favorites."
+
+    print(f"\n{personality_type}")
+    print(f"\n{description}")
+    print(f"\n📊 OVERALL SCORE: {int(avg_score)}/100")
+    
+    def get_bar_large(score, width=40):
+        filled = int((score / 100) * width)
+        return '█' * filled + '░' * (width - filled)
+    
+    print(f"   {get_bar_large(int(avg_score), 40)}")
+    
+    return personality_type, description, avg_score
 
 
 # ============================================================================
@@ -303,7 +534,7 @@ def run_music_analysis(show_graphs=True):
     )
     
     # Inspect data
-    inspect_data(med_tracks, med_artists)
+    # inspect_data(med_tracks, med_artists)
     
     # Analyze statistics
     med_tracks = analyze_statistics(med_tracks, med_artists)
@@ -420,221 +651,13 @@ def run_music_analysis(show_graphs=True):
         print(f"🎸 Your #1 genre: {genre_counts.index[0]}")
     print(f"🎤 Your #1 artist (by track count): {artist_counts.index[0]} ({artist_counts.iloc[0]} tracks)")
 
-
-    # personality analusis
-
-    print("=" * 80)
-    print("🎭 YOUR MUSIC PERSONALITY PROFILE")
-    print("=" * 80)
-
-    # Initialize personality scores (0-100)
-    personality_scores = {
-        'mainstream_factor': 0,      # How mainstream vs indie your taste is
-        'diversity_factor': 0,        # How diverse your music taste is
-        'nostalgia_factor': 0,        # How much you listen to older/classic music
-        'energy_factor': 0,           # Inferred energy level
-        'emotional_depth': 0,         # How emotional/melancholic your music is
-        'cultural_rootedness': 0,     # Connection to cultural music (Bollywood, regional)
-        'explorer_factor': 0          # How much you explore new/obscure music
-    }
-
-    # ===== FACTOR 1: MAINSTREAM vs INDIE =====
-    # Based on average popularity scores
-    avg_popularity = med_tracks['popularity'].mean()
-    if avg_popularity >= 70:
-        personality_scores['mainstream_factor'] = 85  # Very mainstream
-    elif avg_popularity >= 60:
-        personality_scores['mainstream_factor'] = 65  # Somewhat mainstream
-    elif avg_popularity >= 50:
-        personality_scores['mainstream_factor'] = 50  # Balanced
-    elif avg_popularity >= 40:
-        personality_scores['mainstream_factor'] = 35  # Indie-leaning
-    else:
-        personality_scores['mainstream_factor'] = 20  # Very indie/underground
-
-    # ===== FACTOR 2: DIVERSITY =====
-    # Based on genre count and artist variety
-    unique_genres = len(genre_counts) if len(genre_counts) > 0 else 0
-    unique_artists_count = len(artist_counts)
-    artist_concentration = artist_counts.head(10).sum() / len(med_tracks) if len(med_tracks) > 0 else 0
-
-    diversity_score = (
-        (min(unique_genres / 30, 1.0) * 40) +  # Genre diversity (max 40 points)
-        (min(unique_artists_count / 500, 1.0) * 30) +  # Artist count (max 30 points)
-        ((1 - artist_concentration) * 30)  # Low concentration = high diversity (max 30 points)
+    # Calculate personality scores
+    personality_scores, avg_popularity = calculate_personality_scores(
+        med_tracks, artist_counts, genre_counts
     )
-    personality_scores['diversity_factor'] = int(diversity_score)
-
-    # ===== FACTOR 3: NOSTALGIA =====
-    # Based on classic/retro genres and older artists
-
-    # shit is too smol
-    # TODO INCREASE DATASETS
-    nostalgia_genres = ['classic bollywood', 'ghazal', 'qawwali', 'classic hindi pop', 
-                        'hindi retro', 'old bollywood', 'golden age']
-    nostalgia_artists = ['Kishore Kumar', 'Lata Mangeshkar', 'Mohammed Rafi', 
-                         'R. D. Burman', 'Asha Bhosle', 'Mukesh']
-
-    nostalgia_genre_count = sum(1 for g in genre_counts.index[:20] 
-                                if any(ng in g.lower() for ng in nostalgia_genres))
-    nostalgia_artist_count = sum(1 for a in artist_counts.index[:20] 
-                                 if a in nostalgia_artists)
-
-    nostalgia_score = (
-        (nostalgia_genre_count / 5 * 50) +  # Genre nostalgia
-        (nostalgia_artist_count / 6 * 50)   # Artist nostalgia
-    )
-    personality_scores['nostalgia_factor'] = int(min(nostalgia_score, 100))
-
-    # ===== FACTOR 4: ENERGY =====
-    # Infer from genres - upbeat vs mellow
-    upbeat_genres = ['pop', 'dance', 'edm', 'hip hop', 'party', 'punjabi']
-    mellow_genres = ['indie', 'sad', 'slow', 'acoustic', 'chill', 'lo-fi', 'ambient']
-
-    upbeat_count = sum(1 for g in genre_counts.index[:30] 
-                       if any(ug in g.lower() for ug in upbeat_genres))
-    mellow_count = sum(1 for g in genre_counts.index[:30] 
-                       if any(mg in g.lower() for mg in mellow_genres))
-
-    # Score from 0 (very mellow) to 100 (very energetic)
-    if upbeat_count + mellow_count > 0:
-        energy_ratio = upbeat_count / (upbeat_count + mellow_count)
-        personality_scores['energy_factor'] = int(energy_ratio * 100)
-    else:
-        personality_scores['energy_factor'] = 50  # Neutral
-
-    # ===== FACTOR 5: EMOTIONAL DEPTH =====
-    # Based on sad/romantic/melancholic artists and genres
-    # TODO: Expand lists for better accuracy
-    emotional_artists = ['Cigarettes After Sex', 'Arijit Singh', 'Atif Aslam']
-    emotional_genres = ['sad', 'romantic', 'melancholic', 'sufi', 'ghazal', 'indie']
-
-    emotional_artist_count = sum(1 for a in artist_counts.index[:30] 
-                                 if any(ea in a for ea in emotional_artists))
-    emotional_genre_count = sum(1 for g in genre_counts.index[:30] 
-                                if any(eg in g.lower() for eg in emotional_genres))
-
-    emotional_score = (
-        (emotional_artist_count / 10 * 50) +
-        (emotional_genre_count / 10 * 50)
-    )
-    personality_scores['emotional_depth'] = int(min(emotional_score, 100))
-
-    # ===== FACTOR 6: CULTURAL ROOTEDNESS =====
-    # How connected you are to your cultural music
-    cultural_genres = ['bollywood', 'hindi', 'bangla', 'desi', 'indian', 'punjabi', 
-                       'tamil', 'marathi', 'telugu']
-    cultural_count = sum(1 for g in genre_counts.index if any(cg in g.lower() for cg in cultural_genres))
-    total_genres = len(genre_counts) if len(genre_counts) > 0 else 1
-
-    cultural_ratio = cultural_count / total_genres
-    personality_scores['cultural_rootedness'] = int(cultural_ratio * 100)
-
-    # ===== FACTOR 7: EXPLORER =====
-    # How much you explore new/obscure music
-    low_popularity_tracks = len(med_tracks[med_tracks['popularity'] < 30])
-    obscure_ratio = low_popularity_tracks / len(med_tracks) if len(med_tracks) > 0 else 0
-    artist_variety = min(unique_artists_count / 1000, 1.0)  # Normalized to 1000
-
-    explorer_score = (
-        (obscure_ratio * 60) +  # Listening to obscure tracks
-        (artist_variety * 40)   # Artist variety
-    )
-    personality_scores['explorer_factor'] = int(explorer_score)
-
-    # ===== DISPLAY PERSONALITY PROFILE =====
-    print("\n🎯 YOUR PERSONALITY SCORES (0-100 scale):\n")
-
-    def get_bar(score, width=30):
-        filled = int((score / 100) * width)
-        return '█' * filled + '░' * (width - filled) # sexy bar hehe ;)
-
-    def get_label(score, labels):
-        if score >= 80:
-            return labels[4]
-        elif score >= 60:
-            return labels[3]
-        elif score >= 40:
-            return labels[2]
-        elif score >= 20:
-            return labels[1]
-        else:
-            return labels[0]
-
-    print(f"1️⃣  MAINSTREAM vs INDIE: {personality_scores['mainstream_factor']}/100")
-    print(f"   {get_bar(personality_scores['mainstream_factor'])}")
-    print(f"   → {get_label(personality_scores['mainstream_factor'], ['Underground Explorer', 'Indie Lover', 'Balanced', 'Chart Follower', 'Mainstream Enthusiast'])}\n")
-
-    print(f"2️⃣  MUSIC DIVERSITY: {personality_scores['diversity_factor']}/100")
-    print(f"   {get_bar(personality_scores['diversity_factor'])}")
-    print(f"   → {get_label(personality_scores['diversity_factor'], ['Very Focused', 'Somewhat Focused', 'Balanced', 'Diverse Listener', 'Musical Omnivore'])}\n")
-
-    print(f"3️⃣  NOSTALGIA LEVEL: {personality_scores['nostalgia_factor']}/100")
-    print(f"   {get_bar(personality_scores['nostalgia_factor'])}")
-    print(f"   → {get_label(personality_scores['nostalgia_factor'], ['Modern Only', 'Mostly Modern', 'Balanced', 'Classic Lover', 'Vintage Soul'])}\n")
-
-    print(f"4️⃣  ENERGY LEVEL: {personality_scores['energy_factor']}/100")
-    print(f"   {get_bar(personality_scores['energy_factor'])}")
-    print(f"   → {get_label(personality_scores['energy_factor'], ['Very Mellow', 'Chill Vibes', 'Balanced', 'Upbeat', 'High Energy'])}\n")
-
-    print(f"5️⃣  EMOTIONAL DEPTH: {personality_scores['emotional_depth']}/100")
-    print(f"   {get_bar(personality_scores['emotional_depth'])}")
-    print(f"   → {get_label(personality_scores['emotional_depth'], ['Light & Fun', 'Mostly Upbeat', 'Balanced', 'Emotionally Rich', 'Deep Feels'])}\n")
-
-    print(f"6️⃣  CULTURAL ROOTEDNESS: {personality_scores['cultural_rootedness']}/100")
-    print(f"   {get_bar(personality_scores['cultural_rootedness'])}")
-    print(f"   → {get_label(personality_scores['cultural_rootedness'], ['Global Listener', 'Mixed Tastes', 'Balanced', 'Culture-Connected', 'Deeply Rooted'])}\n")
-
-    print(f"7️⃣  EXPLORER MINDSET: {personality_scores['explorer_factor']}/100")
-    print(f"   {get_bar(personality_scores['explorer_factor'])}")
-    print(f"   → {get_label(personality_scores['explorer_factor'], ['Comfort Zone', 'Mostly Familiar', 'Balanced', 'Adventurous', 'Music Archaeologist'])}\n")
-
-    # ===== OVERALL PERSONALITY TYPE =====
-    print("=" * 80)
-    print("🎭 YOUR MUSIC PERSONALITY TYPE")
-    print("=" * 80)
-
-    # Calculate dominant traits
-    avg_score = sum(personality_scores.values()) / len(personality_scores)
-
-    # Determine personality type based on combinations
-    if personality_scores['cultural_rootedness'] > 70 and personality_scores['nostalgia_factor'] > 60:
-        personality_type = "🏛️ THE CULTURAL GUARDIAN"
-        description = "You have deep roots in your cultural music heritage and appreciate the classics. You're keeping traditions alive while enjoying contemporary sounds."
     
-    elif personality_scores['diversity_factor'] > 70 and personality_scores['explorer_factor'] > 60:
-        personality_type = "🌍 THE MUSICAL NOMAD"
-        description = "You're constantly exploring new sounds and artists across genres. Your curiosity drives your music taste, and you're not afraid to venture into the unknown."
-    
-    elif personality_scores['emotional_depth'] > 70:
-        personality_type = "💔 THE EMOTIONAL WANDERER"
-        description = "Music is your emotional outlet. You connect deeply with lyrics and melodies that reflect complex feelings. You're introspective and sentimental."
-    
-    elif personality_scores['mainstream_factor'] > 70 and personality_scores['energy_factor'] > 60:
-        personality_type = "🎉 THE VIBE CURATOR"
-        description = "You love what's trending and know how to set the mood. Your playlist is perfect for parties, and you're always up-to-date with the latest hits."
-    
-    elif personality_scores['nostalgia_factor'] > 70:
-        personality_type = "⏰ THE TIME TRAVELER"
-        description = "You find comfort in the golden oldies and timeless classics. Modern music is fine, but nothing beats the magic of the past for you."
-    
-    elif personality_scores['mainstream_factor'] < 40 and personality_scores['explorer_factor'] > 60:
-        personality_type = "🔍 THE INDIE ARCHAEOLOGIST"
-        description = "Mainstream is not your thing. You dig deep to find hidden gems and obscure artists that others haven't discovered yet. You're a true music connoisseur."
-    
-    elif personality_scores['diversity_factor'] > 70:
-        personality_type = "🎨 THE ECLECTIC COLLECTOR"
-        description = "Your music taste is wonderfully unpredictable. From Bollywood to indie rock, ghazals to pop - you appreciate good music regardless of genre boundaries."
-    
-    else:
-        personality_type = "🎵 THE BALANCED LISTENER"
-        description = "You have a well-rounded music taste that doesn't lean too heavily in any direction. You appreciate variety while maintaining your favorites."
-
-    print(f"\n{personality_type}")
-    print(f"\n{description}")
-
-    print(f"\n📊 OVERALL SCORE: {int(avg_score)}/100")
-    print(f"   {get_bar(int(avg_score), 40)}")
+    # Display personality profile
+    personality_type, description, avg_score = display_personality_profile(personality_scores)
 
     # ============================================================================
     #  MUSIC PERSONALITY MATCH SCORE (For future  Dating App ) (●'◡'●)
@@ -677,6 +700,11 @@ def run_music_analysis(show_graphs=True):
         personality_scores['explorer_factor']
     ]
 
+    # Helper function for bar display
+    def get_bar(score, width=50):
+        filled = int((score / 100) * width)
+        return '█' * filled + '░' * (width - filled)
+    
     print(f"\n🎯 YOUR MUSIC PERSONALITY SCORE: {music_personality_score}/100")
     print(f"   {get_bar(music_personality_score, 50)}")
 
@@ -736,7 +764,7 @@ def run_music_analysis(show_graphs=True):
         "top_genre": genre_counts.index[0] if len(genre_counts) > 0 else "unknown",
         "top_artist": artist_counts.index[0] if len(artist_counts) > 0 else "unknown",
         "avg_popularity": round(avg_popularity, 2),
-        "total_artists": unique_artists_count
+        "total_artists": len(artist_counts)
     }
 
     with open("music_personality_match.json", "w", encoding="utf-8") as f:
@@ -754,11 +782,51 @@ def run_music_analysis(show_graphs=True):
     show_music_graphs(show_graphs, personality_scores, personality_vector,
                      artist_counts, genre_counts, med_tracks, short_tracks, long_tracks)
 
-
+    print("\n" + "=" * 80)
     print("✅ ANALYSIS COMPLETE!")
     print("=" * 80)
     
-    return match_data
+    # Prepare comprehensive data summary for return
+    analysis_summary = {
+        "match_data": match_data,
+        "statistics": {
+            "total_listening_minutes": total_listening_minutes,
+            "unique_artists": unique_artists,
+            "avg_track_popularity": avg_track_popularity,
+            "track_counts": {
+                "short_term": len(short_tracks),
+                "medium_term": len(med_tracks),
+                "long_term": len(long_tracks)
+            },
+            "saved_tracks_count": len(saved),
+            "followed_artists": len(med_artists)
+        },
+        "top_items": {
+            "top_genre": genre_counts.index[0] if len(genre_counts) > 0 else "unknown",
+            "top_artist": artist_counts.index[0] if len(artist_counts) > 0 else "unknown",
+            "top_tracks": [
+                {"name": row['name'], "artists": ', '.join(row['artists']), "popularity": int(row['popularity'])}
+                for _, row in top_popular.head(5).iterrows()
+            ],
+            "top_artists": [
+                {"name": row['name'], "popularity": int(row['popularity']), "followers": int(row['followers'])}
+                for _, row in top_artists_popular.head(5).iterrows()
+            ],
+            "top_genres": [
+                {"genre": genre, "count": int(count)}
+                for genre, count in genre_counts.head(10).items()
+            ]
+        },
+        "personality_profile": {
+            "personality_type": personality_type,
+            "personality_description": description,
+            "scores": personality_scores,
+            "overall_score": int(avg_score),
+            "compatibility_tier": compatibility_tier
+        }
+    }
+    
+    return analysis_summary
 
 
 # ============================================================================
