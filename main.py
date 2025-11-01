@@ -1,3 +1,8 @@
+# GOOD LUCK UNDERSTANDING THIS CODE !
+# I WROTE IT FS BUT NOW ONLY GOD CAN UNDERSTAND IT !
+# WE ARE COOKED ! 
+# 
+
 from fetchSpotifyData import FetchSpotifyData
 from calculate_items import calculate_items as cal
 from run_analysis import run_complete_analysis
